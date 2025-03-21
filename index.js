@@ -1,25 +1,7 @@
 const ws = require('nodejs-websocket');
-const path = require('path');
-const express = require('express');
-const http = require('http');
 
-// 创建 Express 应用用于提供静态文件
-const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
-
-// 首页路由
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// 创建 HTTP 服务器
-const httpServer = http.createServer(app);
+// 设置端口
 const PORT = process.env.PORT || 80;
-
-// 启动 HTTP 服务器
-httpServer.listen(PORT, () => {
-  console.log(`HTTP 服务器启动成功，端口: ${PORT}`);
-});
 
 // 创建 WebSocket 服务器
 const wsServer = ws
@@ -40,8 +22,15 @@ const wsServer = ws
     // 错误处理
     connection.on('error', (error) => {
       console.log('服务异常关闭:', error);
+      // 防止未捕获的错误导致服务器崩溃
     });
   })
-  .listen(80);
+  .listen(PORT);
 
-console.log('WebSocket 服务器启动成功，端口: 80');
+console.log(`WebSocket 服务器启动成功，端口: ${PORT}`);
+
+// 添加全局错误处理，防止程序崩溃
+process.on('uncaughtException', (err) => {
+  console.error('未捕获的异常:', err);
+  // 保持服务运行不退出
+});
