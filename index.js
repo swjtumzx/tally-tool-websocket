@@ -1,60 +1,85 @@
-const path = require("path");
-const express = require("express");
-const cors = require("cors");
-const morgan = require("morgan");
-const { init: initDB, Counter } = require("./db");
+const path = require('path');
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const { init: initDB, Counter } = require('./db');
 
-const logger = morgan("tiny");
-
+// 创建Express应用
 const app = express();
-app.use(express.urlencoded({ extended: false }));
-app.use(express.json());
-app.use(cors());
-app.use(logger);
+app.use(express.static(path.join(__dirname, 'public')));
 
 // 首页
-app.get("/", async (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+app.get('/', async (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// 更新计数
-app.post("/api/count", async (req, res) => {
-  const { action } = req.body;
-  if (action === "inc") {
-    await Counter.create();
-  } else if (action === "clear") {
-    await Counter.destroy({
-      truncate: true,
-    });
-  }
-  res.send({
-    code: 0,
-    data: await Counter.count(),
+// 创建HTTP服务器
+const server = http.createServer(app);
+
+// 创建Socket.IO服务器
+const io = new Server(server);
+
+// Socket.IO连接事件
+io.on('connection', (socket) => {
+  console.log('用户已连接:', socket.id);
+
+  // 发送欢迎消息
+  socket.emit('message', {
+    type: 'welcome',
+    message: '欢迎连接到Socket.IO服务器',
+  });
+
+  // 监听客户端消息
+  socket.on('message', async (data) => {
+    console.log('收到消息:', data);
+
+    // 处理计数功能
+    if (data.type === 'count') {
+      if (data.action === 'get') {
+        // 获取计数
+        const count = await Counter.count();
+        socket.emit('message', {
+          type: 'count',
+          data: count,
+        });
+      } else if (data.action === 'inc') {
+        // 增加计数
+        await Counter.create();
+        const count = await Counter.count();
+        socket.emit('message', {
+          type: 'count',
+          data: count,
+        });
+      } else if (data.action === 'clear') {
+        // 清除计数
+        await Counter.destroy({
+          truncate: true,
+        });
+        socket.emit('message', {
+          type: 'count',
+          data: 0,
+        });
+      }
+    }
+
+    // 广播消息到所有客户端（可选）
+    if (data.broadcast) {
+      socket.broadcast.emit('message', data);
+    }
+  });
+
+  // 断开连接事件
+  socket.on('disconnect', () => {
+    console.log('用户已断开连接:', socket.id);
   });
 });
 
-// 获取计数
-app.get("/api/count", async (req, res) => {
-  const result = await Counter.count();
-  res.send({
-    code: 0,
-    data: result,
-  });
-});
-
-// 小程序调用，获取微信 Open ID
-app.get("/api/wx_openid", async (req, res) => {
-  if (req.headers["x-wx-source"]) {
-    res.send(req.headers["x-wx-openid"]);
-  }
-});
-
-const port = process.env.PORT || 80;
+const port = process.env.PORT || 3000;
 
 async function bootstrap() {
   await initDB();
-  app.listen(port, () => {
-    console.log("启动成功", port);
+  server.listen(port, () => {
+    console.log('Socket.IO服务器启动成功，端口:', port);
   });
 }
 

@@ -1,31 +1,34 @@
-const { Sequelize, DataTypes } = require("sequelize");
+// 简单的内存计数器实现
 
-// 从环境变量中读取数据库配置
-const { MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_ADDRESS = "" } = process.env;
+// 计数值
+let count = 0;
 
-const [host, port] = MYSQL_ADDRESS.split(":");
-
-const sequelize = new Sequelize("nodejs_demo", MYSQL_USERNAME, MYSQL_PASSWORD, {
-  host,
-  port,
-  dialect: "mysql" /* one of 'mysql' | 'mariadb' | 'postgres' | 'mssql' */,
-});
-
-// 定义数据模型
-const Counter = sequelize.define("Counter", {
-  count: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 1,
+// 计数器对象
+const Counter = {
+  // 创建新计数（增加计数）
+  create: async function () {
+    count++;
+    return { count };
   },
-});
 
-// 数据库初始化方法
+  // 获取当前计数
+  count: async function () {
+    return count;
+  },
+
+  // 清空计数
+  destroy: async function (options) {
+    count = 0;
+    return true;
+  },
+};
+
+// 初始化方法（为了保持与原接口兼容）
 async function init() {
-  await Counter.sync({ alter: true });
+  console.log('内存计数器已初始化');
 }
 
-// 导出初始化方法和模型
+// 导出初始化方法和计数器对象
 module.exports = {
   init,
   Counter,

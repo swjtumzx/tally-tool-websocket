@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Socket.IO 消息测试</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+      #message-container {
+        flex: 1;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+      }
+      .message {
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 5px;
+      }
+      .received {
+        background-color: #f1f1f1;
+      }
+      .sent {
+        background-color: #e3f2fd;
+        text-align: right;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .button {
+        padding: 8px 16px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .button:hover {
+        background-color: #45a049;
+      }
+      #message-input {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .status {
+        margin-bottom: 10px;
+        padding: 5px;
+        border-radius: 4px;
+      }
+      .connected {
+        background-color: #dff0d8;
+        color: #3c763d;
+      }
+      .disconnected {
+        background-color: #f2dede;
+        color: #a94442;
+      }
+      .server-config {
+        margin-bottom: 15px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+      }
+      .server-input {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .server-input input {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Socket.IO 消息测试</h1>
+
+      <div class="server-config">
+        <h3>服务器连接</h3>
+        <div class="server-input">
+          <input
+            type="text"
+            id="server-url"
+            placeholder="服务器地址 (如: http://localhost:80)"
+            value=""
+          />
+          <button id="connect-button" class="button">连接</button>
+          <button
+            id="disconnect-button"
+            class="button"
+            style="background-color: #d9534f"
+          >
+            断开
+          </button>
+        </div>
+      </div>
+
+      <div id="connection-status" class="status disconnected">未连接</div>
+
+      <div class="controls">
+        <button id="get-count" class="button">获取计数</button>
+        <button id="inc-count" class="button">增加计数</button>
+        <button id="clear-count" class="button">清空计数</button>
+      </div>
+
+      <div id="message-container"></div>
+
+      <div style="display: flex; gap: 10px">
+        <input type="text" id="message-input" placeholder="输入消息..." />
+        <button id="send-button" class="button">发送</button>
+      </div>
+    </div>
+
+    <!-- 使用 CDN 加载 Socket.IO 客户端库 -->
+    <script
+      src="https://cdn.socket.io/4.7.2/socket.io.min.js"
+      integrity="sha384-mZLF4UVrpi/QTWPA7BjNPEnkIfRFn4ZEO3Qt/HFklTJBj/gBOV8G3HcKn4NfQblz"
+      crossorigin="anonymous"
+    ></script>
+
+    <script>
+      // 确保 Socket.IO 客户端库已加载
+      if (typeof io === 'undefined') {
+        alert('Socket.IO 客户端库加载失败，请检查网络连接或刷新页面重试');
+        console.error('Socket.IO 客户端库加载失败');
+      }
+
+      // 获取DOM元素
+      const messageContainer = document.getElementById('message-container');
+      const messageInput = document.getElementById('message-input');
+      const sendButton = document.getElementById('send-button');
+      const connectionStatus = document.getElementById('connection-status');
+      const getCountButton = document.getElementById('get-count');
+      const incCountButton = document.getElementById('inc-count');
+      const clearCountButton = document.getElementById('clear-count');
+      const serverUrlInput = document.getElementById('server-url');
+      const connectButton = document.getElementById('connect-button');
+      const disconnectButton = document.getElementById('disconnect-button');
+
+      // Socket.IO实例
+      let socket = null;
+
+      // 控制按钮状态的函数
+      function setControlsEnabled(enabled) {
+        sendButton.disabled = !enabled;
+        getCountButton.disabled = !enabled;
+        incCountButton.disabled = !enabled;
+        clearCountButton.disabled = !enabled;
+        messageInput.disabled = !enabled;
+
+        // 根据连接状态设置连接按钮状态
+        connectButton.disabled = enabled;
+        disconnectButton.disabled = !enabled;
+      }
+
+      // 初始按钮状态
+      setControlsEnabled(false);
+
+      // 连接到服务器
+      function connectToServer(url) {
+        // 如果已经有连接，先断开
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+        }
+
+        try {
+          // 检查 Socket.IO 库是否已加载
+          if (typeof io === 'undefined') {
+            throw new Error('Socket.IO 客户端库未加载，请刷新页面');
+          }
+
+          // 创建新连接
+          const options = {
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+            transports: ['websocket', 'polling'], // 优先使用 WebSocket
+            timeout: 10000, // 连接超时时间
+          };
+
+          console.log('正在连接到:', url || window.location.origin);
+          // 如果URL为空，则连接当前页面的服务器
+          socket = url ? io(url, options) : io(options);
+
+          // 显示连接中状态
+          connectionStatus.textContent = '正在连接...';
+          connectionStatus.className = 'status disconnected';
+
+          // 连接成功
+          socket.on('connect', () => {
+            console.log('Socket.IO 连接成功');
+            connectionStatus.textContent =
+              '已连接到: ' + (url || window.location.origin);
+            connectionStatus.className = 'status connected';
+            addMessage('系统', '已连接到服务器', 'received');
+            setControlsEnabled(true);
+          });
+
+          // 断开连接
+          socket.on('disconnect', (reason) => {
+            console.log('Socket.IO 断开连接，原因:', reason);
+            connectionStatus.textContent = '已断开连接';
+            connectionStatus.className = 'status disconnected';
+            addMessage(
+              '系统',
+              `已断开与服务器的连接，原因: ${reason}`,
+              'received'
+            );
+            setControlsEnabled(false);
+          });
+
+          // 连接错误
+          socket.on('connect_error', (error) => {
+            console.error('Socket.IO 连接错误:', error);
+            addMessage('系统', '连接错误: ' + error.message, 'received');
+            // 连接错误后重置状态
+            connectionStatus.textContent = '连接失败';
+            connectionStatus.className = 'status disconnected';
+            setControlsEnabled(false);
+          });
+
+          // 接收消息
+          socket.on('message', (data) => {
+            console.log('收到消息:', data);
+
+            if (data.type === 'welcome') {
+              addMessage('服务器', data.message, 'received');
+            } else if (data.type === 'count') {
+              addMessage('服务器', `当前计数: ${data.data}`, 'received');
+            } else {
+              addMessage('服务器', JSON.stringify(data), 'received');
+            }
+          });
+
+          return true;
+        } catch (error) {
+          console.error('创建连接时出错:', error);
+          addMessage('系统', '创建连接时出错: ' + error.message, 'received');
+          connectionStatus.textContent = '连接失败';
+          connectionStatus.className = 'status disconnected';
+          setControlsEnabled(false);
+          return false;
+        }
+      }
+
+      // 断开连接
+      function disconnectFromServer() {
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+        }
+      }
+
+      // 连接按钮点击事件
+      connectButton.addEventListener('click', () => {
+        const serverUrl = serverUrlInput.value.trim();
+        addMessage(
+          '系统',
+          '尝试连接到服务器: ' + (serverUrl || '当前页面服务器'),
+          'received'
+        );
+        connectToServer(serverUrl);
+      });
+
+      // 断开连接按钮点击事件
+      disconnectButton.addEventListener('click', () => {
+        disconnectFromServer();
+      });
+
+      // 发送消息
+      sendButton.addEventListener('click', () => {
+        if (!socket) return;
+
+        const message = messageInput.value.trim();
+        if (message) {
+          const data = {
+            message: message,
+            timestamp: new Date().toISOString(),
+          };
+          socket.emit('message', data);
+          addMessage('我', message, 'sent');
+          messageInput.value = '';
+        }
+      });
+
+      // 按回车发送消息
+      messageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          sendButton.click();
+        }
+      });
+
+      // 获取计数
+      getCountButton.addEventListener('click', () => {
+        if (socket) {
+          socket.emit('message', { type: 'count', action: 'get' });
+        }
+      });
+
+      // 增加计数
+      incCountButton.addEventListener('click', () => {
+        if (socket) {
+          socket.emit('message', { type: 'count', action: 'inc' });
+        }
+      });
+
+      // 清空计数
+      clearCountButton.addEventListener('click', () => {
+        if (socket) {
+          socket.emit('message', { type: 'count', action: 'clear' });
+        }
+      });
+
+      // 添加消息到界面
+      function addMessage(sender, text, type) {
+        const messageElement = document.createElement('div');
+        messageElement.className = `message ${type}`;
+
+        const timestamp = new Date().toLocaleTimeString();
+        messageElement.innerHTML = `<strong>${sender}</strong> (${timestamp}): ${text}`;
+
+        messageContainer.appendChild(messageElement);
+        messageContainer.scrollTop = messageContainer.scrollHeight;
+      }
+
+      // 页面加载时自动连接到当前服务器
+      document.addEventListener('DOMContentLoaded', () => {
+        // 设置常用本地服务器地址
+        const localServers = [
+          window.location.origin, // 当前服务器
+          'http://localhost:3000', // 常用 Node.js 端口
+          'http://localhost:80', // 默认 HTTP 端口
+          'http://localhost:8080', // 常用开发端口
+        ];
+
+        // 添加本地服务器地址到下拉列表
+        const serverSelector = document.createElement('div');
+        serverSelector.className = 'server-selector';
+        serverSelector.style.marginTop = '10px';
+        serverSelector.innerHTML = `
+          <label>快速连接: </label>
+          <select id="server-presets" style="padding: 5px; border-radius: 4px; margin-left: 5px;">
+            <option value="">选择服务器...</option>
+            ${localServers
+              .map((server) => `<option value="${server}">${server}</option>`)
+              .join('')}
+          </select>
+        `;
+
+        // 将选择器添加到服务器配置区域
+        document.querySelector('.server-input').after(serverSelector);
+
+        // 添加选择事件
+        const serverPresets = document.getElementById('server-presets');
+        serverPresets.addEventListener('change', () => {
+          if (serverPresets.value) {
+            serverUrlInput.value = serverPresets.value;
+          }
+        });
+
+        // 如果URL中包含autoconnect=false，则不自动连接
+        if (window.location.search.includes('autoconnect=false')) {
+          addMessage('系统', '自动连接已禁用，请手动连接到服务器', 'received');
+        } else {
+          setTimeout(() => {
+            // 尝试检测是否在本地开发环境
+            if (
+              window.location.hostname === 'localhost' ||
+              window.location.hostname === '127.0.0.1'
+            ) {
+              connectButton.click();
+            } else {
+              addMessage('系统', '请选择或输入要连接的服务器地址', 'received');
+            }
+          }, 500);
+        }
+      });
+    </script>
+  </body>
+</html>
