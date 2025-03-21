@@ -44,4 +44,4 @@ const wsServer = ws
   })
   .listen(80);
 
-console.log('WebSocket 服务器启动成功，端口: 8080');
+console.log('WebSocket 服务器启动成功，端口: 80');
