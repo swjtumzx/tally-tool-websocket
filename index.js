@@ -11,4 +11,4 @@ ws.createServer((connection) => {
   connection.on('error', () => {
     console.log('服务异常关闭');
   });
-}).listen(3000);
+}).listen(80);
