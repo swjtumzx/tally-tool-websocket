@@ -1,7 +1,7 @@
 {
-  "name": "wxcloudrun-express",
+  "name": "simple-socketio-server",
   "version": "1.0.0",
-  "description": "微信云托管 express 框架模版",
+  "description": "简单的 Socket.IO 服务器",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -9,10 +9,7 @@
   "author": "",
   "license": "Apache-2.0",
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.16.4",
-    "morgan": "^1.10.0",
-    "nodejs-websocket": "^1.7.2",
+    "express": "^4.17.1",
     "socket.io": "^4.7.2"
   },
   "engines": {
