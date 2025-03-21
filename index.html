@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Socket.IO 示例</title>
+    <title>WebSocket 示例</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -40,14 +40,14 @@
   </head>
 
   <body>
-    <h1>Socket.IO 服务器已启动</h1>
+    <h1>WebSocket 服务器已启动</h1>
 
     <div class="box">
       <h2>服务器信息</h2>
       <div class="info">
         <p><strong>状态:</strong> 运行中</p>
-        <p><strong>WebSocket 路径:</strong> /socket.io/</p>
-        <p><strong>版本:</strong> Socket.IO 4.x</p>
+        <p><strong>WebSocket 路径:</strong> ws://localhost:8080</p>
+        <p><strong>版本:</strong> nodejs-websocket</p>
       </div>
     </div>
 
@@ -56,28 +56,40 @@
       <p>使用以下链接进行测试：</p>
       <p>
         <a href="/client.html" class="button">打开测试客户端</a>
-        <a
-          href="https://amritb.github.io/socketio-client-tool/"
-          target="_blank"
-          class="button"
-          >Socket.IO 测试工具</a
-        >
       </p>
     </div>
 
     <div class="box">
       <h2>连接示例</h2>
       <pre><code>
-const socket = io();
+// 浏览器中创建 WebSocket 连接
+const socket = new WebSocket('ws://localhost:8080');
 
-// 发送消息
-socket.emit('message', '你好，服务器!');
+// 连接打开时触发
+socket.onopen = function(e) {
+  console.log('连接已建立');
+  socket.send('你好，服务器!');
+};
 
-// 接收消息
-socket.on('message', (data) => {
-  console.log('收到服务器消息:', data);
-});
-    </code></pre>
+// 收到消息时触发
+socket.onmessage = function(event) {
+  console.log('收到服务器消息:', event.data);
+};
+
+// 连接关闭时触发
+socket.onclose = function(event) {
+  if (event.wasClean) {
+    console.log(`连接已关闭，代码=${event.code} 原因=${event.reason}`);
+  } else {
+    console.log('连接异常中断');
+  }
+};
+
+// 发生错误时触发
+socket.onerror = function(error) {
+  console.log(`WebSocket 错误: ${error.message}`);
+};
+      </code></pre>
     </div>
   </body>
 </html>

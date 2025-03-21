@@ -1,7 +1,7 @@
 {
-  "name": "simple-socketio-server",
+  "name": "simple-websocket-server",
   "version": "1.0.0",
-  "description": "简单的 Socket.IO 服务器",
+  "description": "简单的 WebSocket 服务器",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -10,7 +10,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "express": "^4.17.1",
-    "socket.io": "^4.7.2"
+    "nodejs-websocket": "^1.7.2"
   },
   "engines": {
     "node": ">=12.0.0"
