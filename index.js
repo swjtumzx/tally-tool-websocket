@@ -42,6 +42,6 @@ const wsServer = ws
       console.log('服务异常关闭:', error);
     });
   })
-  .listen(8080);
+  .listen(80);
 
 console.log('WebSocket 服务器启动成功，端口: 8080');
